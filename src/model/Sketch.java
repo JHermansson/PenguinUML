@@ -3,6 +3,7 @@ package model;
 import edu.tamu.core.sketch.Stroke;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Path;
+import javafx.scene.shape.PathElement;
 
 /**
  * The model-representation of a Sketch.
@@ -63,6 +64,23 @@ public class Sketch implements GraphElement{
 
     public Path getPath() {
         return path;
+    }
+
+    public Sketch copy(){
+        Path pathCopy = new Path();
+        pathCopy.setTranslateY(path.getTranslateX());
+        pathCopy.setTranslateY(path.getTranslateY());
+        pathCopy.setScaleX(path.getScaleX());
+        pathCopy.setScaleY(path.getScaleY());
+        pathCopy.getElements().addAll(path.getElements());
+
+        Stroke strokeCopy = stroke.clone();
+
+
+        Sketch copy = new Sketch(pathCopy);
+        copy.setStroke(strokeCopy);
+
+        return copy;
     }
 
     @Override

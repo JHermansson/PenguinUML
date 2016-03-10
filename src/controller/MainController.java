@@ -51,7 +51,8 @@ public class MainController {
     //Copy nodes logic
     private ArrayList<AbstractNode> currentlyCopiedNodes = new ArrayList<>();
     private ArrayList<AbstractEdge> currentlyCopiedEdges = new ArrayList<>();
-    private HashMap<AbstractNode, double[]> copyDeltas = new HashMap<>();
+    private ArrayList<Sketch> currentlyCopiedSketches = new ArrayList<>();
+    private HashMap<GraphElement, double[]> copyDeltas = new HashMap<>();
     private double[] copyPasteCoords;
 
     //For drag-selecting nodes
@@ -1311,6 +1312,10 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         for(AbstractEdgeView edgeView : selectedEdges){
             currentlyCopiedEdges.add(edgeView.getRefEdge());
         }
+
+        for(Sketch sketch : selectedSketches){
+            currentlyCopiedSketches.add(sketch);
+        }
         setUpCopyCoords();
     }
 
@@ -1319,23 +1324,25 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
      */
     private void setUpCopyCoords(){
         double currentClosestToCorner = Double.MAX_VALUE;
-        AbstractNode closest = null;
-        for(GraphElement element: currentlyCopiedNodes){
-            if(element instanceof AbstractNode){
-                if((element.getTranslateX() + element.getTranslateY()) < currentClosestToCorner){
-                    currentClosestToCorner = element.getTranslateX() + element.getTranslateY();
-                    closest = (AbstractNode) element;
-                }
-            }
+        GraphElement closest = null;
 
+        ArrayList<GraphElement> currentlyCopiedElements = new ArrayList<>();
+        currentlyCopiedElements.addAll(currentlyCopiedNodes);
+        currentlyCopiedElements.addAll(currentlyCopiedSketches);
+
+        for(GraphElement element : currentlyCopiedElements){
+            if((element.getTranslateX() + element.getTranslateY()) < currentClosestToCorner){
+                currentClosestToCorner = element.getTranslateX() + element.getTranslateY();
+                closest = element;
+            }
         }
 
-        for(AbstractNode node : currentlyCopiedNodes){
-            if(node != closest){
-                copyDeltas.put(node, new double[]{node.getTranslateX() - closest.getTranslateX(),
-                        node.getTranslateY() - closest.getTranslateY()});
+        for(GraphElement element : currentlyCopiedElements){
+            if(element != closest){
+                copyDeltas.put(element, new double[]{element.getTranslateX() - closest.getTranslateX(),
+                        element.getTranslateY() - closest.getTranslateY()});
             } else {
-                copyDeltas.put(node, new double[]{0,0});
+                copyDeltas.put(element, new double[]{0,0});
             }
         }
     }
@@ -1402,6 +1409,18 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
             command.add(new AddDeleteNodeCommand(this, graph, newView, copy, true));
 
         }
+
+        for(Sketch oldSketch : currentlyCopiedSketches){
+            Sketch sketchCopy = oldSketch.copy();
+            getGraphModel().addSketch(sketchCopy);
+            sketchCopy.setTranslateX(copyPasteCoords[0] + copyDeltas.get(oldSketch)[0]);
+            sketchCopy.setTranslateY(copyPasteCoords[1] + copyDeltas.get(oldSketch)[1]);
+            //TODO
+            aDrawPane.getChildren().add(sketchCopy.getPath());
+            command.add(new AddDeleteSketchCommand(aDrawPane, sketchCopy, true));
+        }
+
+        currentlyCopiedSketches.clear();
         currentlyCopiedNodes.clear();
         currentlyCopiedEdges.clear();
         if(command.size() != 0){

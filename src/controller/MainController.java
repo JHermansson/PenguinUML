@@ -166,6 +166,25 @@ public class MainController {
                             }
                         }
 
+                        for(AbstractEdgeView edgeView : allEdgeViews){
+                            if (edgeView.getBoundsInParent().contains(event.getX(), event.getY())){
+                                selected = true;
+                                selectedEdges.add(edgeView);
+                                if(event.getClickCount() > 1){
+                                    edgeController.showEdgeEditDialog(edgeView.getRefEdge());
+                                }
+                            }
+                        }
+
+                        for(Sketch sketch : allSketches){
+                            if(sketch.getPath().getBoundsInParent().contains(event.getX(), event.getY())){
+                                selected = true;
+                                selectedSketches.add(sketch);
+                                mode = Mode.DRAGGING;
+                                sketchController.moveSketchStart(event);
+                            }
+                        }
+
                         selectStartX = event.getX();
                         selectStartY = event.getY();
                         selectRectangle.setX(event.getX());
@@ -211,15 +230,16 @@ public class MainController {
                     selectRectangle.setY(Math.min(selectStartY, event.getY()));
                     selectRectangle.setWidth(Math.abs(selectStartX - event.getX()));
                     selectRectangle.setHeight(Math.abs(selectStartY - event.getY()));
-
-
                     selectRectangle.setHeight(Math.max(event.getY() - selectStartY, selectStartY - event.getY()));
-                    //drawSelected();
+                }
+                else if (tool == ToolEnum.SELECT && mode == Mode.DRAGGING){
+                    sketchController.moveSketches(event);
                 }
                 //--------- MOUSE EVENT FOR TESTING ---------- TODO
                 else if ((tool == ToolEnum.CREATE || tool == ToolEnum.PACKAGE) && mode == Mode.CREATING && mouseCreationActivated) {
                     createNodeController.onMouseDragged(event);
-                } else if(mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
+                }
+                else if(mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
                 {
                     graphController.movePane(graph.getAllGraphElements(), event);
                 }
@@ -234,12 +254,15 @@ public class MainController {
                 if (tool == ToolEnum.EDGE && mode == Mode.CREATING) {
                     //User is not creating a Edge between two nodes, so we don't handle that.
                     edgeController.removeDragLine();
-
                     mode = Mode.NO_MODE;
 
                 }
                 else if (tool == ToolEnum.EDGE) {
                     edgeController.removeDragLine();
+                }
+                else if (tool == ToolEnum.SELECT && mode == Mode.DRAGGING){
+                    sketchController.moveSketchFinished(event);
+                    mode = Mode.NO_MODE;
                 }
                 else if (tool == ToolEnum.SELECT && mode == Mode.SELECTING)
                 {
@@ -729,7 +752,6 @@ public class MainController {
      */
     private void deleteSelected(){
         CompoundCommand command = new CompoundCommand();
-        System.out.println("SelectedEdges size: " + selectedEdges.size());
         for(AbstractNodeView nodeView : selectedNodes){
             deleteNode(nodeView, command, false);
         }
@@ -1208,23 +1230,22 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
     }
 
 
-    //---------------------- MENU HANDLERS -----------------------------------------------------------------------------
-
+    //------------------------------------------- MENU HANDLERS --------------------------------------------------------
 
     public void handleMenuActionUML(){
         List<Button> umlButtons = Arrays.asList(createBtn, packageBtn, edgeBtn);
 
         if(umlVisible){
-            for(AbstractNodeView nodeView : allNodeViews){
-                aDrawPane.getChildren().remove(nodeView);
-            }
+            aDrawPane.getChildren().removeAll(allNodeViews);
+            aDrawPane.getChildren().removeAll(allEdgeViews);
+
             setButtons(true, umlButtons);
             umlMenuItem.setSelected(false);
             umlVisible = false;
         } else {
-            for(AbstractNodeView nodeView : allNodeViews){
-                aDrawPane.getChildren().add(nodeView);
-            }
+            aDrawPane.getChildren().addAll(allNodeViews);
+            aDrawPane.getChildren().addAll(allEdgeViews);
+
             setButtons(false, umlButtons);
             umlMenuItem.setSelected(true);
             umlVisible = true;
@@ -1533,7 +1554,6 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
             }
         }
         if(startNodeView == null || endNodeView == null) {
-            System.out.println("Failed to find start or end node");
             return null;
         } else {
             AssociationEdgeView edgeView = new AssociationEdgeView(edge, startNodeView, endNodeView);

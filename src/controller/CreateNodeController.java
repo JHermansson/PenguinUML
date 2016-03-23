@@ -45,9 +45,10 @@ public class CreateNodeController {
         dragRectangle.setFill(null);
         dragRectangle.setStroke(Color.BLACK);
 
+
         if(event.getSource() instanceof AbstractNodeView){
-            dragRectangle.setX(event.getTouchPoint().getX() + ((AbstractNodeView) event.getSource()).getX());
-            dragRectangle.setY(event.getTouchPoint().getY() + ((AbstractNodeView) event.getSource()).getY());
+            dragRectangle.setX(event.getTouchPoint().getX() + ((AbstractNodeView) event.getSource()).getTranslateX());
+            dragRectangle.setY(event.getTouchPoint().getY() + ((AbstractNodeView) event.getSource()).getTranslateY());
         } else {
             dragRectangle.setX(event.getTouchPoint().getX());
             dragRectangle.setY(event.getTouchPoint().getY());

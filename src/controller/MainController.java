@@ -35,7 +35,7 @@ import java.util.*;
  */
 public class MainController {
     //For testing with mouse and keyboard
-    private boolean mouseCreationActivated = true;
+    private boolean mouseCreationActivated = false;
 
     //Controllers
     private CreateNodeController createNodeController;

@@ -1,5 +1,6 @@
 package model;
 
+import edu.tamu.core.sketch.Point;
 import edu.tamu.core.sketch.Stroke;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Path;
@@ -72,10 +73,14 @@ public class Sketch implements GraphElement{
         pathCopy.setTranslateY(path.getTranslateY());
         pathCopy.setScaleX(path.getScaleX());
         pathCopy.setScaleY(path.getScaleY());
+
+
         pathCopy.getElements().addAll(path.getElements());
 
-        Stroke strokeCopy = stroke.clone();
-
+        Stroke strokeCopy = new Stroke();
+        for (Point point : stroke.getPoints()){
+            strokeCopy.addPoint(new Point(point.getX(), point.getY()));
+        }
 
         Sketch copy = new Sketch(pathCopy);
         copy.setStroke(strokeCopy);

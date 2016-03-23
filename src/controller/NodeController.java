@@ -96,8 +96,6 @@ public class NodeController {
     }
 
     public void moveNodesStart(MouseEvent event){
-        //TODO This can maybe cause problem further on. Should maybe use getX() instead?
-        //However, this is only used to calculate delta, so we leave it for now.
         initMoveX = event.getSceneX();
         initMoveY = event.getSceneY();
 
@@ -127,8 +125,8 @@ public class NodeController {
     }
 
     public void moveNodes(MouseEvent event){
-        double offsetX = event.getSceneX() - initMoveX;
-        double offsetY = event.getSceneY() - initMoveY;
+        double offsetX = (event.getSceneX() - initMoveX) * 100/aMainController.getZoomScale();
+        double offsetY = (event.getSceneY() - initMoveY) * 100/aMainController.getZoomScale();
 
         //Drag all selected nodes and their children
         for(AbstractNode n : toBeMoved)
@@ -137,7 +135,6 @@ public class NodeController {
             n.setTranslateY(initTranslateMap.get(n).getY() + offsetY);
             n.setX(initTranslateMap.get(n).getX() + offsetX);
             n.setY(initTranslateMap.get(n).getY() + offsetY);
-
         }
     }
 
@@ -205,16 +202,10 @@ public class NodeController {
                         ((PackageNode)nodeMap.get(potentialParent)).addChild(nodeMap.get(potentialChild));
                     }
                     childMovedInside = true;
-                    System.out.println("INSIDE");
                 } else {
-                    System.out.println("OUTSIDE");
                     //Remove child if it is moved out of the package
                     ((PackageNode)nodeMap.get(potentialParent)).getChildNodes().remove(nodeMap.get(potentialChild));
 
-                }
-                System.out.println("CHILDLIST SIZE: " + ((PackageNode) nodeMap.get(potentialParent)).getChildNodes().size());
-                for(AbstractNode n : ((PackageNode)nodeMap.get(potentialParent)).getChildNodes()) {
-                    System.out.println(n);
                 }
             }
         }
@@ -300,11 +291,14 @@ public class NodeController {
             // Load the fxml file and create a new stage for the popup
             FXMLLoader loader = new FXMLLoader(getClass().getClassLoader().getResource("nodeEditDialog.fxml"));
 
-            AnchorPane page = (AnchorPane) loader.load();
-            page.setBackground(new Background(new BackgroundFill(Color.WHITESMOKE, new CornerRadii(1), null)));
-            page.setStyle("-fx-border-color: black");
-            page.setLayoutX(node.getTranslateX()+5);
-            page.setLayoutY(node.getTranslateY()+5);
+            AnchorPane dialog = (AnchorPane) loader.load();
+            dialog.setBackground(new Background(new BackgroundFill(Color.WHITESMOKE, new CornerRadii(1), null)));
+            dialog.setStyle("-fx-border-color: black");
+            //Set location for dialog.
+            double maxX = aDrawPane.getWidth() - dialog.getPrefWidth();
+            double maxY = aDrawPane.getHeight() - dialog.getPrefHeight();
+            dialog.setLayoutX(Math.min(maxX,node.getTranslateX()+5));
+            dialog.setLayoutY(Math.min(maxY, node.getTranslateY()+5));
 
             NodeEditDialogController controller = loader.getController();
             controller.setNode(node);
@@ -314,18 +308,17 @@ public class NodeController {
                     node.setTitle(controller.getTitle());
                     node.setAttributes(controller.getAttributes());
                     node.setOperations(controller.getOperations());
-                    aDrawPane.getChildren().remove(page);
+                    aDrawPane.getChildren().remove(dialog);
                 }
             });
 
             controller.getCancelButton().setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    aDrawPane.getChildren().remove(page);
+                    aDrawPane.getChildren().remove(dialog);
                 }
             });
-            aDrawPane.getChildren().add(page);
-
+            aDrawPane.getChildren().add(dialog);
             return controller.isOkClicked();
 
         } catch (IOException e) {

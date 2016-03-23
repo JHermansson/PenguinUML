@@ -1,13 +1,19 @@
 package model;
 
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+
+import javafx.beans.property.ObjectProperty;
+import java.io.Serializable;
 import javafx.beans.property.*;
 
 /**
  * Abstract Edge to hide some basic Edge-functionality.
  */
-public abstract class AbstractEdge implements Edge {
+public abstract class AbstractEdge implements Edge, Serializable {
     private Node startNode;
     private Node endNode;
+    private DoubleProperty zoom = new SimpleDoubleProperty(1);
     private StringProperty startMultiplicity = new SimpleStringProperty();
     private StringProperty endMultiplicity = new SimpleStringProperty();
 
@@ -75,5 +81,26 @@ public abstract class AbstractEdge implements Edge {
         this.endNode = node;
     }
 
+    public void setZoom(double scale){
+        zoom.setValue(scale);
+    }
 
+    public double getZoom(){
+        return zoom.getValue();
+    }
+
+    public DoubleProperty zoomProperty() {
+        return zoom;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + this.getClass().toString() + " " + direction + getStartMultiplicity() + getEndMultiplicity();
+    }
+
+    /**
+     * No-arg constructor for JavaBean convention
+     */
+    public AbstractEdge(){
+    }
 }

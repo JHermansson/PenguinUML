@@ -1,9 +1,17 @@
 package controller;
 
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.Path;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import model.*;
 import util.commands.*;
@@ -15,9 +23,11 @@ import javafx.scene.input.TouchEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import util.persistence.PersistenceManager;
 import view.*;
 
 import java.awt.geom.Point2D;
+import java.io.File;
 import java.util.*;
 
 /**
@@ -25,7 +35,7 @@ import java.util.*;
  */
 public class MainController {
     //For testing with mouse and keyboard
-    private boolean mouseCreationActivated = true; //TODO shouldn't be true, only while testing
+    private boolean mouseCreationActivated = true;
 
     //Controllers
     private CreateNodeController createNodeController;
@@ -64,12 +74,6 @@ public class MainController {
     //private Path drawPath;
     private Map<Integer, Path> currentPaths = new HashMap<>();
 
-    //For max/min zoom check
-    private boolean zoomMaxedOut;
-    private double totalZoomFactor;
-    private final double MAX_ZOOM = 7;
-    private final double MIN_ZOOM = 0.3;
-
     private boolean selected = false; //A node is currently selected
     private double currentScale = 1;
 
@@ -93,10 +97,11 @@ public class MainController {
     private boolean nodeWasDragged = true;
 
     @FXML private Pane aDrawPane;
-    @FXML private ToolBar aToolBar;
     @FXML private CheckMenuItem umlMenuItem;
     @FXML private CheckMenuItem sketchesMenuItem;
     @FXML private CheckMenuItem mouseMenuItem;
+    @FXML private Slider zoomSlider;
+    @FXML private BorderPane aBorderPane;
 
     private ContextMenu aContextMenu;
 
@@ -109,11 +114,13 @@ public class MainController {
         selectRectangle = new Rectangle();
         selectRectangle.setFill(null);
         selectRectangle.setStroke(Color.BLACK);
+        selectRectangle.getStrokeDashArray().addAll(4.0,5.0,4.0,5.0);
+
 
         initDrawPaneActions();
-        //initSceneActions();
         initToolBarActions();
         initContextMenu();
+        initZoomSlider();
 
         graph = new Graph();
 
@@ -126,28 +133,13 @@ public class MainController {
 
         undoManager = new UndoManager();
 
+        drawGrid();
     }
 
-    
-    //TODO FIX SO THAT YOU CAN USE KEYACTIONS
-    /*private void initSceneActions(){
-        aScene.setOnKeyPressed(new EventHandler<KeyEvent>() {
-            @Override
-            public void handle(KeyEvent keyEvent) {
-                if (keyEvent.isControlDown() && keyEvent.getCode() == KeyCode.Z) {
-
-                    undoManager.undoCommand();
-                    keyEvent.consume();
-                }
-                if (keyEvent.isControlDown() && keyEvent.getCode() == KeyCode.Y) {
-                    undoManager.redoCommand();
-                    keyEvent.consume();
-                }
-            }
-        });
-    }*/
 
     private void initDrawPaneActions() {
+        aBorderPane.setPickOnBounds(false);
+
         aDrawPane.setOnMousePressed(new EventHandler<MouseEvent>() {
             @Override
             public void handle(MouseEvent event) {
@@ -179,7 +171,7 @@ public class MainController {
                         selectStartY = event.getY();
                         selectRectangle.setX(event.getX());
                         selectRectangle.setY(event.getY());
-                        if (aDrawPane.getChildren().contains(selectRectangle)) {
+                        if (!aDrawPane.getChildren().contains(selectRectangle)) {
                             aDrawPane.getChildren().add(selectRectangle);
                         }
 
@@ -189,6 +181,12 @@ public class MainController {
                         mode = Mode.CREATING;
                         createNodeController.onMousePressed(event);
                     }
+                    else if(tool == ToolEnum.MOVE_SCENE){
+                        mode = Mode.MOVING;
+                        graphController.movePaneStart(graph.getAllGraphElements(), event);
+                        event.consume();
+                    }
+
                 } else if (mode == Mode.CONTEXT_MENU)
                 {
                     if(event.getButton() == MouseButton.SECONDARY){
@@ -210,15 +208,21 @@ public class MainController {
                 }
                 else if (tool == ToolEnum.SELECT && mode == Mode.SELECTING)
                 {
-                    selectRectangle.setX(selectStartX);
-                    selectRectangle.setY(selectStartY);
-                    selectRectangle.setWidth(event.getX() - selectStartX);
-                    selectRectangle.setHeight(event.getY() - selectStartY);
+                    selectRectangle.setX(Math.min(selectStartX, event.getX()));
+                    selectRectangle.setY(Math.min(selectStartY, event.getY()));
+                    selectRectangle.setWidth(Math.abs(selectStartX - event.getX()));
+                    selectRectangle.setHeight(Math.abs(selectStartY - event.getY()));
+
+
+                    selectRectangle.setHeight(Math.max(event.getY() - selectStartY, selectStartY - event.getY()));
                     //drawSelected();
                 }
                 //--------- MOUSE EVENT FOR TESTING ---------- TODO
                 else if ((tool == ToolEnum.CREATE || tool == ToolEnum.PACKAGE) && mode == Mode.CREATING && mouseCreationActivated) {
                     createNodeController.onMouseDragged(event);
+                } else if(mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
+                {
+                    graphController.movePane(graph.getAllGraphElements(), event);
                 }
                 event.consume();
             }
@@ -302,7 +306,9 @@ public class MainController {
                         mode = Mode.NO_MODE;
                     }
 
-                } else if (tool == ToolEnum.PACKAGE && mode == Mode.CREATING && mouseCreationActivated) { //TODO: combine double code
+                }
+                else if (tool == ToolEnum.PACKAGE && mode == Mode.CREATING && mouseCreationActivated)
+                { //TODO: combine double code
                     PackageNode node = createNodeController.createPackageNodeMouse(event);
                     PackageNodeView nodeView = (PackageNodeView) createNodeController.onMouseReleased(event, node, currentScale);
                     nodeMap.put(nodeView, node);
@@ -314,60 +320,14 @@ public class MainController {
                         mode = Mode.NO_MODE;
                     }
                 }
-            }
-        });
-
-        /*aDrawPane.setOnZoomStarted(new EventHandler<ZoomEvent>() {
-            @Override
-            public void handle(ZoomEvent event) {
-                if(tool != ToolEnum.MOVE_SCENE){
-                    mode = Mode.ZOOMING;
-                    event.consume();
-                }
-
-            }
-        });
-
-        aDrawPane.setOnZoom(new EventHandler<ZoomEvent>() {
-            @Override
-            public void handle(ZoomEvent event) {
-                if(mode == Mode.ZOOMING && tool != ToolEnum.MOVE_SCENE){
-                    if(!zoomMaxedOut){
-                        if((event.getTotalZoomFactor()*currentScale < MIN_ZOOM) ||
-                                (event.getTotalZoomFactor()*currentScale > MAX_ZOOM)){ //TODO magic numbers
-                            zoomMaxedOut = true;
-                            totalZoomFactor = event.getTotalZoomFactor();
-                        } else {
-                            graphController.zoomPane(event);
-                        }
-                        event.consume();
-                    }
-               }
-            }
-        });
-
-        aDrawPane.setOnZoomFinished(new EventHandler<ZoomEvent>() {
-            @Override
-            public void handle(ZoomEvent event) {
-                if(mode == Mode.ZOOMING && tool != ToolEnum.MOVE_SCENE)
+                else if (mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
                 {
-                    if(zoomMaxedOut)
-                    {
-                        currentScale = totalZoomFactor * currentScale;
-                        currentScale = Math.min(MAX_ZOOM, currentScale);
-                        currentScale = Math.max(MIN_ZOOM, currentScale);
-                    }
-                    else
-                    {
-                        currentScale = event.getTotalZoomFactor() * currentScale;
-                    }
+                    graphController.movePaneFinished(event);
                     mode = Mode.NO_MODE;
-                    zoomMaxedOut = false;
-                    totalZoomFactor = 0;
-                    event.consume();
                 }
             }
-        });*/
+        });
+
 
         aDrawPane.setOnTouchPressed(new EventHandler<TouchEvent>() {
             @Override
@@ -380,12 +340,6 @@ public class MainController {
                 {
                     mode = Mode.DRAWING;
                     sketchController.onTouchPressed(event);
-                    event.consume();
-                }
-                else if(event.getTouchCount() > 2 && mode == Mode.NO_MODE && tool == ToolEnum.MOVE_SCENE){ //TODO MORE THAN 2?
-                    mode = Mode.MOVING;
-                    graphController.movePaneStart(graph.getAllGraphElements(), event);
-                    event.consume();
                 }
             }
         });
@@ -399,10 +353,6 @@ public class MainController {
                 else if (tool == ToolEnum.DRAW && mode == Mode.DRAWING)
                 {
                     sketchController.onTouchMoved(event);
-                }
-                else if(event.getTouchCount() > 2 && mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
-                {
-                    graphController.movePane(graph.getAllGraphElements(), event);
                 }
                 event.consume();
 
@@ -429,7 +379,8 @@ public class MainController {
                         mode = Mode.NO_MODE;
                     }
 
-                } else if (tool == ToolEnum.PACKAGE && mode == Mode.CREATING && !mouseCreationActivated) { //TODO: combine double code
+                }
+                else if (tool == ToolEnum.PACKAGE && mode == Mode.CREATING && !mouseCreationActivated) { //TODO: combine double code
                     PackageNode node = createNodeController.createPackageNode(event);
                     PackageNodeView nodeView = (PackageNodeView) createNodeController.onTouchReleased(node, currentScale);
                     nodeMap.put(nodeView, node);
@@ -454,26 +405,10 @@ public class MainController {
                         mode = Mode.NO_MODE;
                     }
                 }
-                else if(event.getTouchCount() > 2 && mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE) {
-                    graphController.movePaneFinished();
-                    mode = Mode.NO_MODE;
-                }
                 event.consume();
             }
         });
-
-        /*aDrawPane.setOnScroll(new EventHandler<ScrollEvent>() {
-            @Override
-            public void handle(ScrollEvent event) {
-                for (javafx.scene.Node n : aDrawPane.getChildren()) {
-                    n.setTranslateX(n.getTranslateX() + event.getDeltaX());
-                    n.setTranslateY(n.getTranslateY() + event.getDeltaY());
-                    event.consume();
-                }
-            }
-        });*/
     }
-
 
 
     private void drawSelected(){
@@ -506,7 +441,6 @@ public class MainController {
         }
     }
 
-    //TODO THis should take a GraphElement(View?) instead!
     private void initNodeActions(AbstractNodeView nodeView){
         nodeView.setOnMousePressed(new EventHandler<MouseEvent>() {
             @Override
@@ -514,6 +448,16 @@ public class MainController {
                 //TODO Maybe needs some check here?
                 if (event.getClickCount() == 2) {
                     nodeController.onDoubleClick(nodeView);
+                }
+                else if(tool == ToolEnum.MOVE_SCENE) {
+                    mode = Mode.MOVING;
+                    graphController.movePaneStart(graph.getAllGraphElements(), event);
+                    event.consume();
+                }
+                else if(tool == ToolEnum.MOVE_SCENE){
+                    mode = Mode.MOVING;
+                    graphController.movePaneStart(graph.getAllGraphElements(), event);
+                    event.consume();
                 }
                 else if(event.getButton() == MouseButton.SECONDARY){
                     nodeClicked = nodeView;
@@ -574,6 +518,10 @@ public class MainController {
 
 
                 }
+                else if(mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
+                {
+                    graphController.movePane(graph.getAllGraphElements(), event);
+                }
                 else if (tool == ToolEnum.SELECT && mode == Mode.RESIZING)
                 {
                     nodeController.resize(nodeView, event);
@@ -613,6 +561,10 @@ public class MainController {
                         drawSelected();
                         nodeWasDragged = false;
                     }
+                } else if (mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
+                {
+                    graphController.movePaneFinished(event);
+                    mode = Mode.NO_MODE;
                 }
                 else if (tool == ToolEnum.SELECT && mode == Mode.RESIZING)
                 {
@@ -642,6 +594,7 @@ public class MainController {
                     if (startNodeView != null && endNodeView != null) {
                         initEdgeActions(edgeView);
                         allEdgeViews.add(edgeView);
+                        graph.getAllEdges().add(edge);
                         undoManager.add(new AddDeleteEdgeCommand(MainController.this, edgeView, edge, true));
                     }
                     edgeController.removeDragLine();
@@ -697,10 +650,6 @@ public class MainController {
                     mode = Mode.DRAWING;
                     sketchController.onTouchPressed(event);
                 }
-                else if(event.getTouchCount() > 2 && mode == Mode.NO_MODE && tool == ToolEnum.MOVE_SCENE){ //TODO MORE THAN 2?
-                    mode = Mode.MOVING;
-                    graphController.movePaneStart(graph.getAllGraphElements(), event);
-                }
                 event.consume();
             }
         });
@@ -714,10 +663,6 @@ public class MainController {
                 else if (tool == ToolEnum.DRAW && mode == Mode.DRAWING)
                 {
                     sketchController.onTouchMoved(event);
-                }
-                else if(event.getTouchCount() > 2 && mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE)
-                {
-                    graphController.movePane(graph.getAllGraphElements(), event);
                 }
                 event.consume();
 
@@ -769,8 +714,8 @@ public class MainController {
                         mode = Mode.NO_MODE;
                     }
                 }
-                else if(event.getTouchCount() > 2 && mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE) {
-                    graphController.movePaneFinished();
+                else if(mode == Mode.MOVING && tool == ToolEnum.MOVE_SCENE) {
+                    //graphController.movePaneFinished(event); TODO
                     mode = Mode.NO_MODE;
                 }
                 event.consume();
@@ -790,7 +735,7 @@ public class MainController {
             deleteNode(nodeView, command, false);
         }
         for (AbstractEdgeView edgeView : selectedEdges) {
-            deleteEdge(edgeView, command, false);
+            deleteEdgeView(edgeView, command, false);
         }
         for (Sketch sketch : selectedSketches) {
             deleteSketch(sketch, command);
@@ -806,7 +751,7 @@ public class MainController {
     /**
      * Deletes nodes and its associated edges
      * @param nodeView
-     * @param pCommand If not null we create our own command
+     * @param pCommand Compound command from deleting all selected, if not null we create our own command.
      * @param undo If true this is an undo and no command should be created
      */
     public void deleteNode(AbstractNodeView nodeView, CompoundCommand pCommand, boolean undo){
@@ -832,12 +777,19 @@ public class MainController {
         }
     }
 
-    public void deleteEdge(AbstractEdgeView edgeView, CompoundCommand pCommand, boolean undo) {
-        CompoundCommand command;
-        //TODO Maybe not necessary for edges.
+    /**
+     * Deletes edfe
+     * @param edgeView
+     * @param pCommand Compound command from deleting all selected, if not null we create our own command.
+     * @param undo If true this is an undo and no command should be created, also used by replaceEdge in EdgeController
+     */
+    public void deleteEdgeView(AbstractEdgeView edgeView, CompoundCommand pCommand, boolean undo) {
+        CompoundCommand command = null;
+        //TODO Ugly solution for replace.
         if (pCommand == null) {
             command = new CompoundCommand();
-        } else {
+            selectedEdges.remove(edgeView);
+        } else if (!undo){
             command = pCommand;
         }
 
@@ -845,9 +797,11 @@ public class MainController {
         getGraphModel().removeEdge(edge);
         aDrawPane.getChildren().remove(edgeView);
         allEdgeViews.remove(edgeView);
-        selectedEdges.remove(edgeView);
         if (!undo) {
             command.add(new AddDeleteEdgeCommand(this, edgeView, edge, false));
+        }
+        if(pCommand == null && !undo){
+            undoManager.add(command);
         }
     }
 
@@ -913,6 +867,14 @@ public class MainController {
         return allNodeViews;
     }
 
+    public ArrayList<AbstractEdgeView> getAllEdgeViews() {
+        return allEdgeViews;
+    }
+
+    public UndoManager getUndoManager(){
+        return undoManager;
+    }
+
 private void initEdgeActions(AbstractEdgeView edgeView){
     edgeView.setOnMousePressed(new EventHandler<MouseEvent>() {
         @Override
@@ -922,7 +884,7 @@ private void initEdgeActions(AbstractEdgeView edgeView){
             }
             if (event.getClickCount() == 2 || event.getButton() == MouseButton.SECONDARY) {
                 //TODO If more kinds of Edges implemented: this will not work:
-                edgeController.showEdgeEditDialog((AssociationEdge) edgeView.getRefEdge());
+                edgeController.showEdgeEditDialog(edgeView.getRefEdge());
             }
         }
     });
@@ -1042,182 +1004,229 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         return selectedSketches;
     }
 
-    @FXML
-    private void initToolBarActions(){
-        ObservableList<javafx.scene.Node> buttonList = aToolBar.getItems();
 
-        //TODO Hardcoded string-vales!
-        for (javafx.scene.Node button : buttonList)
-        {
-            if (((Button)button).getText().equals("Create"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.CREATE;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Edge"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.EDGE;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Select"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.SELECT;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Draw"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.DRAW;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Package"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.PACKAGE;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Undo"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        undoManager.undoCommand();
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Redo"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        undoManager.redoCommand();
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Move"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        tool = ToolEnum.MOVE_SCENE;
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Delete"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) {
-                        deleteSelected();
-                    }
-                });
-            }
-            else if (((Button)button).getText().equals("Recognize"))
-            {
-                ((Button)button).setOnAction(new EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent event) { //TODO MOVE THIS SOMEWHERE ELSE
-                        ArrayList<GraphElement> recognized = recognizeController.recognize(allSketches);
-                        CompoundCommand recognizeCompoundCommand = new CompoundCommand();
+    @FXML private Button createBtn;
+    @FXML private Button packageBtn;
+    @FXML private Button edgeBtn;
+    @FXML private Button selectBtn;
+    @FXML private Button drawBtn;
+    @FXML private Button undoBtn;
+    @FXML private Button redoBtn;
+    @FXML private Button moveBtn;
+    @FXML private Button deleteBtn;
+    @FXML private Button recognizeBtn;
+    private Button buttonInUse;
 
-                        for (GraphElement e : recognized) {
-                            if (e instanceof ClassNode) {
-                                ClassNodeView nodeView = new ClassNodeView((ClassNode)e);
-                                recognizeCompoundCommand.add(
-                                        new AddDeleteNodeCommand(MainController.this, graph, nodeView, (ClassNode)e, true));
-                                nodeMap.put(nodeView, (ClassNode) e);
-                                aDrawPane.getChildren().add(nodeView);
-                                allNodeViews.add(nodeView);
-                                initNodeActions(nodeView);
-                            }
-                        }
-                        for (GraphElement e2 : recognized) {
-                            if (e2 instanceof AssociationEdge) {
-                                AssociationEdge edge = (AssociationEdge) e2;
-                                //Only add the edge to the graph if it connects two nodes.
-                                AbstractNodeView startNodeView = null;
-                                AbstractNodeView endNodeView = null;
+    private void initToolBarActions() {
 
-                                for (AbstractNodeView nView : allNodeViews) {
-                                    if (nView.contains(edge.getStartNode().getX(), edge.getStartNode().getY())) {
-                                        startNodeView = nView;
-                                        break;
-                                    }
-                                }
+        Image image = new Image("/icons/classw.png");
+        createBtn.setGraphic(new ImageView(image));
+        createBtn.setText("");
 
-                                for (AbstractNodeView nView : allNodeViews) {
-                                    if (nView.contains(edge.getEndNode().getX(),
-                                            edge.getEndNode().getY())) {
-                                        endNodeView = nView;
-                                        break;
-                                    }
-                                }
+        image = new Image("/icons/packagew.png");
+        packageBtn.setGraphic(new ImageView(image));
+        packageBtn.setText("");
 
-                                AssociationEdgeView edgeView = (AssociationEdgeView) edgeController.
-                                        onMouseReleased(edge, startNodeView, endNodeView);
-                                //TODO This check shouldn't be necessary?
-                                if (startNodeView != null && endNodeView != null) {
-                                    initEdgeActions(edgeView);
-                                    allEdgeViews.add(edgeView);
-                                    recognizeCompoundCommand.add(new AddDeleteEdgeCommand(MainController.this, edgeView, edge, true));
-                                }
-                            }
-                        }
-                        //Add the removal of sketches to UndoManager:
-                        for (Sketch sketch : recognizeController.getSketchesToBeRemoved()) {
-                            recognizeCompoundCommand.add(new AddDeleteSketchCommand(aDrawPane, sketch, false));
-                            aDrawPane.getChildren().remove(sketch);
-                            graph.removeSketch(sketch);
-                        }
-                        allSketches.removeAll(recognizeController.getSketchesToBeRemoved());
-                        undoManager.add(recognizeCompoundCommand);
-                        //Bring all sketches to front:
-                        for (Sketch sketch : allSketches) {
-                            sketch.getPath().toFront();
-                        }
-                        mode = Mode.NO_MODE;
-                    }
-                });
+        image = new Image("/icons/edgew.png");
+        edgeBtn.setGraphic(new ImageView(image));
+        edgeBtn.setText("");
+
+        image = new Image("/icons/selectw.png");
+        selectBtn.setGraphic(new ImageView(image));
+        selectBtn.setText("");
+
+        image = new Image("/icons/undow.png");
+        undoBtn.setGraphic(new ImageView(image));
+        undoBtn.setText("");
+
+        image = new Image("/icons/redow.png");
+        redoBtn.setGraphic(new ImageView(image));
+        redoBtn.setText("");
+
+        image = new Image("/icons/movew.png");
+        moveBtn.setGraphic(new ImageView(image));
+        moveBtn.setText("");
+
+        image = new Image("/icons/deletew.png");
+        deleteBtn.setGraphic(new ImageView(image));
+        deleteBtn.setText("");
+
+        image = new Image("/icons/draww.png");
+        drawBtn.setGraphic(new ImageView(image));
+        drawBtn.setText("");
+
+        image = new Image("/icons/recognizew.png");
+        recognizeBtn.setGraphic(new ImageView(image));
+        recognizeBtn.setText("");
+
+        buttonInUse = createBtn;
+        buttonInUse.getStyleClass().add("button-in-use");
+
+        createBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                tool = ToolEnum.CREATE;
+                setButtonClicked(createBtn);
             }
+        });
 
-        }
+        packageBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                tool = ToolEnum.PACKAGE;
+                setButtonClicked(packageBtn);
+            }
+        });
+
+        edgeBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                tool = ToolEnum.EDGE;
+                setButtonClicked(edgeBtn);
+            }
+        });
+
+        selectBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                tool = ToolEnum.SELECT;
+                setButtonClicked(selectBtn);
+            }
+        });
+
+        drawBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                tool = ToolEnum.DRAW;
+                setButtonClicked(drawBtn);
+            }
+        });
+
+        undoBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                undoManager.undoCommand();
+            }
+        });
+
+        redoBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                undoManager.redoCommand();
+            }
+        });
+
+        moveBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                setButtonClicked(moveBtn);
+                tool = ToolEnum.MOVE_SCENE;
+            }
+        });
+
+        deleteBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                deleteSelected();
+            }
+        });
+
+        recognizeBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                recognize();
+            }
+        });
+
     }
+
+    private void setButtonClicked(Button b){
+        buttonInUse.getStyleClass().remove("button-in-use");
+        buttonInUse = b;
+        buttonInUse.getStyleClass().add("button-in-use");
+    }
+
+    private void recognize(){
+        ArrayList<GraphElement> recognized = recognizeController.recognize(selectedSketches);
+        CompoundCommand recognizeCompoundCommand = new CompoundCommand();
+
+        for (GraphElement e : recognized) {
+            if (e instanceof ClassNode) {
+                ClassNodeView nodeView = new ClassNodeView((ClassNode)e);
+                recognizeCompoundCommand.add(
+                        new AddDeleteNodeCommand(MainController.this, graph, nodeView, (ClassNode)e, true));
+                nodeMap.put(nodeView, (ClassNode) e);
+                aDrawPane.getChildren().add(nodeView);
+                allNodeViews.add(nodeView);
+                initNodeActions(nodeView);
+            }
+        }
+        for (GraphElement e2 : recognized) {
+            if (e2 instanceof AssociationEdge) {
+                AssociationEdge edge = (AssociationEdge) e2;
+                //Only add the edge to the graph if it connects two nodes.
+                AbstractNodeView startNodeView = null;
+                AbstractNodeView endNodeView = null;
+
+                for (AbstractNodeView nView : allNodeViews) {
+                    if (nView.contains(edge.getStartNode().getX(), edge.getStartNode().getY())) {
+                        startNodeView = nView;
+                        break;
+                    }
+                }
+
+                for (AbstractNodeView nView : allNodeViews) {
+                    if (nView.contains(edge.getEndNode().getX(),
+                            edge.getEndNode().getY())) {
+                        endNodeView = nView;
+                        break;
+                    }
+                }
+
+                AssociationEdgeView edgeView = (AssociationEdgeView) edgeController.
+                        onMouseReleased(edge, startNodeView, endNodeView);
+                //TODO This check shouldn't be necessary?
+                if (startNodeView != null && endNodeView != null) {
+                    initEdgeActions(edgeView);
+                    allEdgeViews.add(edgeView);
+                    recognizeCompoundCommand.add(new AddDeleteEdgeCommand(MainController.this, edgeView, edge, true));
+                }
+            }
+        }
+        //Add the removal of sketches to UndoManager:
+        for (Sketch sketch : recognizeController.getSketchesToBeRemoved()) {
+            recognizeCompoundCommand.add(new AddDeleteSketchCommand(aDrawPane, sketch, false));
+            aDrawPane.getChildren().remove(sketch);
+            graph.removeSketch(sketch);
+        }
+        selectedSketches.removeAll(recognizeController.getSketchesToBeRemoved());
+        undoManager.add(recognizeCompoundCommand);
+        //Bring all sketches to front:
+        for (Sketch sketch : allSketches) {
+            sketch.getPath().toFront();
+        }
+        mode = Mode.NO_MODE;
+    }
+
 
     //---------------------- MENU HANDLERS -----------------------------------------------------------------------------
 
-    List<String> umlButtonStrings = Arrays.asList("Create", "Package", "Edge");
 
     public void handleMenuActionUML(){
+        List<Button> umlButtons = Arrays.asList(createBtn, packageBtn, edgeBtn);
+
         if(umlVisible){
             for(AbstractNodeView nodeView : allNodeViews){
                 aDrawPane.getChildren().remove(nodeView);
             }
-            setButtons(true, umlButtonStrings);
+            setButtons(true, umlButtons);
             umlMenuItem.setSelected(false);
             umlVisible = false;
         } else {
             for(AbstractNodeView nodeView : allNodeViews){
                 aDrawPane.getChildren().add(nodeView);
             }
-            setButtons(false, umlButtonStrings);
+            setButtons(false, umlButtons);
             umlMenuItem.setSelected(true);
             umlVisible = true;
         }
@@ -1229,7 +1238,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
                 aDrawPane.getChildren().remove(sketch.getPath());
             }
 
-            setButtons(true, Arrays.asList("Draw"));
+            setButtons(true, Arrays.asList(drawBtn));
 
             sketchesMenuItem.setSelected(false);
             sketchesVisible = false;
@@ -1238,7 +1247,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
                 aDrawPane.getChildren().add(sketch.getPath());
             }
 
-            setButtons(false, Arrays.asList("Draw"));
+            setButtons(false, Arrays.asList(drawBtn));
             sketchesMenuItem.setSelected(true);
             sketchesVisible = true;
         }
@@ -1247,23 +1256,49 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
     /**
      * Disables or enables buttons provided in the list.
      * @param disable
-     * @param buttonStrings
+     * @param buttons
      */
-    private void setButtons(boolean disable, List<String> buttonStrings){
-        ObservableList<javafx.scene.Node> buttonList = aToolBar.getItems();
-        for (javafx.scene.Node button : buttonList){
-            if(buttonStrings.contains(((Button) button).getText())){
-                button.setDisable(disable);
-            }
-            if(((Button) button).getText().equals("Select")){
-                ((Button) button).fire();
-            }
+    private void setButtons(boolean disable, List<Button> buttons){
+        for (Button button : buttons){
+            button.setDisable(disable);
         }
+        selectBtn.fire();
     }
+
+    //------------------------- SAVE-LOAD FEATURE --------------------------------------------------------------------
 
     public void handleMenuActionMouse(){
         mouseCreationActivated = !mouseCreationActivated;
         mouseMenuItem.setSelected(mouseCreationActivated);
+    }
+
+    public void handleMenuActionSave(){
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Diagram");
+        File file = fileChooser.showSaveDialog(getStage());
+        if(graph.getName().equals("")){
+            fileChooser.setInitialFileName(graph.getName() + ".xml");
+        } else {
+            fileChooser.setInitialFileName("mydiagram.xml");
+        }
+        PersistenceManager.saveFile(graph, file.getAbsolutePath());
+    }
+
+    public void handleMenuActionLoad(){
+        final FileChooser fileChooser = new FileChooser();
+        File file = fileChooser.showOpenDialog(getStage());
+        fileChooser.setTitle("Choose XML-file");
+        fileChooser.setInitialDirectory(new File(System.getProperty("user.dir")));
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("XML", "*.xml"));
+        Graph graph = null;
+        if (file != null) {
+            graph = PersistenceManager.loadFile(file.getAbsolutePath());
+        }
+        load(graph);
+    }
+
+    public void handleMenuActionNew(){
+        reset();
     }
 
 
@@ -1275,9 +1310,11 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         cmItemDelete.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
+                //TODO Is this really needed? Why just not delete all selected?
                 if(aContextMenu.getOwnerNode() instanceof AbstractNodeView){
                     deleteNode((AbstractNodeView) aContextMenu.getOwnerNode(), null, false);
                 }
+                deleteSelected();
             }
         });
 
@@ -1441,6 +1478,12 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
             newView = new PackageNodeView((PackageNode)node);
         }
 
+        if(newView instanceof ClassNodeView){
+            newView.toFront();
+        } else {
+            newView.toBack();
+            gridToBack();
+        }
         return addNodeView(newView, node);
     }
 
@@ -1470,8 +1513,14 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         AbstractEdgeView edgeView;
         if(edge instanceof AssociationEdge){
             edgeView = new AssociationEdgeView(edge, startNodeView, endNodeView);
+        } else if (edge instanceof AggregationEdge) {
+            edgeView = new AggregationEdgeView(edge, startNodeView, endNodeView);
+        } else if (edge instanceof CompositionEdge) {
+            edgeView = new CompositionEdgeView(edge, startNodeView, endNodeView);
+        } else if (edge instanceof InheritanceEdge) {
+            edgeView = new InheritanceEdgeView(edge, startNodeView, endNodeView);
         } else {
-            return null;
+            edgeView = null;
         }
         return addEdgeView(edgeView);
     }
@@ -1482,11 +1531,108 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
      * @return
      */
     public AbstractEdgeView addEdgeView(AbstractEdgeView edgeView){
-        aDrawPane.getChildren().add(edgeView);
-        initEdgeActions(edgeView);
-        allEdgeViews.add(edgeView);
+        if(edgeView != null) {
+            aDrawPane.getChildren().add(edgeView);
+            initEdgeActions(edgeView);
+            allEdgeViews.add(edgeView);
+        }
 
         return edgeView;
     }
 
+    public AbstractEdgeView addEdgeView(AbstractEdge edge){
+        //TODO Really ugly
+        AbstractNodeView startNodeView = null;
+        AbstractNodeView endNodeView = null;
+        for(AbstractNodeView nodeView : allNodeViews){
+            if(edge.getStartNode() == nodeMap.get(nodeView)){
+                startNodeView = nodeView;
+            } else if (edge.getEndNode() == nodeMap.get(nodeView)){
+                endNodeView = nodeView;
+            }
+        }
+        if(startNodeView == null || endNodeView == null) {
+            System.out.println("Failed to find start or end node");
+            return null;
+        } else {
+            AssociationEdgeView edgeView = new AssociationEdgeView(edge, startNodeView, endNodeView);
+            initEdgeActions(edgeView);
+            allEdgeViews.add(edgeView);
+            aDrawPane.getChildren().add(edgeView);
+            return edgeView;
+        }
+    }
+
+    private void reset(){
+        graph = new Graph();
+        aDrawPane.getChildren().clear();
+        nodeMap.clear();
+        allNodeViews.clear();
+        zoomSlider.setValue(zoomSlider.getMax()/2);
+        graphController.resetDrawPaneOffset();
+        undoManager = new UndoManager();
+        drawGrid();
+    }
+
+
+
+    private void load(Graph graph){
+        reset();
+
+        if (graph != null) {
+            this.graph = graph;
+            for(AbstractNode node : this.graph.getAllNodes()){
+                createNodeView(node);
+            }
+
+            for(Edge edge : this.graph.getAllEdges()){
+                addEdgeView((AbstractEdge) edge);
+            }
+        }
+    }
+
+    //------------------------------------ GRID -------------------------------------
+    private ArrayList<Line> grid = new ArrayList<>();
+
+    public ArrayList<Line> getGrid(){
+        return grid;
+    }
+
+    private void drawGrid(){
+        for (int i = 0; i < 10000; i+=20)
+        {
+            Line line1 = new Line(i, 0, i, 15000);
+            line1.setStroke(Color.LIGHTGRAY);
+            Line line2 = new Line(0, i, 15000, i);
+            line2.setStroke(Color.LIGHTGRAY);
+            grid.add(line1);
+            grid.add(line2);
+            aDrawPane.getChildren().addAll(line1, line2);
+        }
+    }
+
+    public void gridToBack(){
+        for(Line line : grid){
+            line.toBack();
+        }
+    }
+
+    //------------------------ Zoom-feature ------------------------------------------------------------------------
+    private void initZoomSlider(){
+
+        zoomSlider.valueProperty().addListener(new ChangeListener<Number>() {
+            public void changed(ObservableValue<? extends Number> ov,
+                                Number old_val, Number new_val) {
+                if(zoomSlider.isValueChanging()){
+                    graphController.zoomPane(old_val.doubleValue(), new_val.doubleValue());
+                }
+            }
+        });
+        zoomSlider.setShowTickMarks(true);
+        zoomSlider.setPrefWidth(200);
+    }
+
+    public double getZoomScale(){
+        return zoomSlider.getValue();
+    }
 }

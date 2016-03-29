@@ -68,14 +68,16 @@ public class Sketch implements GraphElement{
     }
 
     public Sketch copy(){
-        Path pathCopy = new Path();
+        Path pathCopy = new Path(path.getElements());
         pathCopy.setTranslateY(path.getTranslateX());
         pathCopy.setTranslateY(path.getTranslateY());
         pathCopy.setScaleX(path.getScaleX());
         pathCopy.setScaleY(path.getScaleY());
 
-
-        pathCopy.getElements().addAll(path.getElements());
+        /*path.getElements().get().
+        for(PathElement el : path.getElements()){
+            pathCopy.getElements().add(el);
+        }*/
 
         Stroke strokeCopy = new Stroke();
         for (Point point : stroke.getPoints()){
@@ -84,6 +86,8 @@ public class Sketch implements GraphElement{
 
         Sketch copy = new Sketch(pathCopy);
         copy.setStroke(strokeCopy);
+
+        copy.getPath().setStroke(Color.GREEN);
 
         return copy;
     }

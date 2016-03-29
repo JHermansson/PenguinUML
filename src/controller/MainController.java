@@ -10,6 +10,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.MoveTo;
 import javafx.scene.shape.Path;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -1360,6 +1361,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
 
     //TODO Copy edges and sketches as well
     private void copy(){
+
         currentlyCopiedNodes.clear();
         copyDeltas.clear();
         currentlyCopiedEdges.clear();
@@ -1389,17 +1391,35 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         currentlyCopiedElements.addAll(currentlyCopiedSketches);
 
         for(GraphElement element : currentlyCopiedElements){
-            if((element.getTranslateX() + element.getTranslateY()) < currentClosestToCorner){
-                currentClosestToCorner = element.getTranslateX() + element.getTranslateY();
-                closest = element;
+            if(!(element instanceof Sketch)){
+                if((element.getTranslateX() + element.getTranslateY()) < currentClosestToCorner){
+                    currentClosestToCorner = element.getTranslateX() + element.getTranslateY();
+                    closest = element;
+                }
+            } else {
+                MoveTo mt = ((MoveTo)((Sketch)element).getPath().getElements().get(0));
+                if((mt.getX() + mt.getY()) < currentClosestToCorner){
+                    currentClosestToCorner = (mt.getX() + mt.getY());
+                    closest = element;
+                }
             }
+
         }
 
         for(GraphElement element : currentlyCopiedElements){
-            if(element != closest){
-                copyDeltas.put(element, new double[]{element.getTranslateX() - closest.getTranslateX(),
-                        element.getTranslateY() - closest.getTranslateY()});
+            if(element != closest) {
+                if(element instanceof Sketch){
+                    MoveTo mt = ((MoveTo)((Sketch)element).getPath().getElements().get(0));
+                    copyDeltas.put(element, new double[]{mt.getX() - closest.getTranslateX(),
+                            mt.getY() - closest.getTranslateY()});
+                } else {
+                    copyDeltas.put(element, new double[]{element.getTranslateX() - closest.getTranslateX(),
+                            element.getTranslateY() - closest.getTranslateY()});
+                }
             } else {
+                MoveTo mt = ((MoveTo)((Sketch)element).getPath().getElements().get(0));
+                copyDeltas.put(element, new double[]{mt.getX() - closest.getTranslateX(),
+                        mt.getY() - closest.getTranslateY()});
                 copyDeltas.put(element, new double[]{0,0});
             }
         }
@@ -1470,14 +1490,26 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
 
         for(Sketch oldSketch : currentlyCopiedSketches){
             Sketch sketchCopy = oldSketch.copy();
-            getGraphModel().addSketch(sketchCopy);
-            sketchCopy.setTranslateX(copyPasteCoords[0] + copyDeltas.get(oldSketch)[0]);
-            sketchCopy.setTranslateY(copyPasteCoords[1] + copyDeltas.get(oldSketch)[1]);
+            graph.addSketch(sketchCopy);
+            allSketches.add(sketchCopy);
+            MoveTo mt = ((MoveTo)oldSketch.getPath().getElements().get(0));
+            sketchCopy.getPath().setTranslateX(copyPasteCoords[0] - mt.getX());
+            sketchCopy.getPath().setTranslateY(copyPasteCoords[1] - mt.getY());
+            //sketchCopy.setTranslateX(copyPasteCoords[0] + copyDeltas.get(oldSketch)[0]);
+            //sketchCopy.setTranslateY(copyPasteCoords[1] + copyDeltas.get(oldSketch)[1]);
             //TODO
             aDrawPane.getChildren().add(sketchCopy.getPath());
+            initSketchActions(sketchCopy);
+
             command.add(new AddDeleteSketchCommand(aDrawPane, sketchCopy, true));
         }
-
+        for(javafx.scene.Node node : aDrawPane.getChildren()){
+            if(!(node instanceof Line)){
+                System.out.println(node);
+                System.out.println(" X: " +  node.getTranslateX() +
+                        " Y: " + node.getTranslateY());
+            }
+        }
         currentlyCopiedSketches.clear();
         currentlyCopiedNodes.clear();
         currentlyCopiedEdges.clear();

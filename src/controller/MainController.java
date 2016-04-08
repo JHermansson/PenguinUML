@@ -1084,7 +1084,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         recognizeBtn.setGraphic(new ImageView(image));
         recognizeBtn.setText("");
 
-        image = new Image("/icons/recow.png");
+        image = new Image("/icons/voicew.png");
         voiceBtn.setGraphic(new ImageView(image));
         voiceBtn.setText("");
 

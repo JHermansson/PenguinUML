@@ -1039,6 +1039,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
     @FXML private Button moveBtn;
     @FXML private Button deleteBtn;
     @FXML private Button recognizeBtn;
+    @FXML private Button voiceBtn; //added
     private Button buttonInUse;
 
     private void initToolBarActions() {
@@ -1082,6 +1083,11 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         image = new Image("/icons/recow.png");
         recognizeBtn.setGraphic(new ImageView(image));
         recognizeBtn.setText("");
+
+        image = new Image("/icons/recow.png");
+        voiceBtn.setGraphic(new ImageView(image));
+        voiceBtn.setText("");
+
 
         buttonInUse = createBtn;
         buttonInUse.getStyleClass().add("button-in-use");
@@ -1162,6 +1168,17 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
             }
         });
 
+        voiceBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                voice();
+            }
+        });
+
+
+    }
+    private void voice(){
+        setButtonClicked(voiceBtn);
     }
 
     private void setButtonClicked(Button b){

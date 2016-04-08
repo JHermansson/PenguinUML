@@ -156,34 +156,7 @@ public class NodeController {
         return deltaTranslateVector;
     }
 
-    /**
-     * Brings up a dialog to give a title to a Node.
-     * @param node, the Node to give a Title
-     * @return false if node == null, otherwise true.
-     */
-    public boolean addNodeTitle(AbstractNode node){
-        if (node == null)
-        {
-            return false;
-        }
-        Dialog <String> dialog = new TextInputDialog();
-        dialog.setTitle("Choose title");
-        dialog.setHeaderText("Choose title");
 
-        Optional<String> result = dialog.showAndWait();
-        String entered = "none.";
-
-        if (result.isPresent())
-        {
-            entered = result.get();
-        }
-
-        if(!entered.equals("none."))
-        {
-            node.setTitle(entered);
-        }
-        return true;
-    }
 
     /**
      * If potentialChild is graphically inside a package view it will be added as a child to that package node.

@@ -54,6 +54,13 @@ public class NodeEditDialogController {
         attributesArea.setText(this.node.attributesProperty().getValue());
         operationsArea.setText(this.node.operationsProperty().getValue());
     }
+    public void setNode(ClassNode node, String title) {
+        this.node = node;
+
+        titleField.setText(title);
+        attributesArea.setText(this.node.attributesProperty().getValue());
+        operationsArea.setText(this.node.operationsProperty().getValue());
+    }
 
     public Button getOkButton() {
         return okButton;

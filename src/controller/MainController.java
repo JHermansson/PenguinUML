@@ -32,6 +32,11 @@ import java.awt.geom.Point2D;
 import java.io.File;
 import java.util.*;
 
+import edu.cmu.sphinx.frontend.util.Microphone;
+import edu.cmu.sphinx.recognizer.Recognizer;
+import edu.cmu.sphinx.result.Result;
+import edu.cmu.sphinx.util.props.ConfigurationManager;
+
 /**
  * Created by marcusisaksson on 2016-02-11.
  */
@@ -46,6 +51,8 @@ public class MainController {
     private GraphController graphController;
     private SketchController sketchController;
     private RecognizeController recognizeController;
+
+    public Voice voice;
 
     private Graph graph;
     private Stage aStage;
@@ -1084,9 +1091,9 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         recognizeBtn.setGraphic(new ImageView(image));
         recognizeBtn.setText("");
 
-        image = new Image("/icons/voicew.png");
-        voiceBtn.setGraphic(new ImageView(image));
-        voiceBtn.setText("");
+        image = new Image("/icons/voicew.png"); //added
+        voiceBtn.setGraphic(new ImageView(image)); //added
+        voiceBtn.setText(""); //added
 
 
         buttonInUse = createBtn;
@@ -1168,17 +1175,241 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
             }
         });
 
-        voiceBtn.setOnAction(new EventHandler<ActionEvent>() {
+        voiceBtn.setOnAction(new EventHandler<ActionEvent>() { //added
             @Override
-            public void handle(ActionEvent event) {
-                voice();
+            public void handle(ActionEvent event) { voice();
             }
         });
 
 
     }
-    private void voice(){
+
+
+
+    public ConfigurationManager cm = null;
+    public Recognizer recognizer = null;
+    public Microphone microphone = null;
+
+    public String voiceTest(){ //added
+        System.out.println("Banan1");
+        System.out.println("Banan2");
+
+        if(cm == null) {
+            cm = new ConfigurationManager("src/controller/helloworld.config.xml");
+            System.out.println("Banan2,5");
+        }
+
+        if(recognizer == null) {
+            recognizer = (Recognizer) cm.lookup("recognizer");
+            recognizer.allocate();
+        }
+
+        System.out.println("Banan3");
+
+        // start the microphone or exit if the programm if this is not possible
+        if(microphone == null) {
+            microphone = (Microphone) cm.lookup("microphone");
+            if (!microphone.startRecording()) {
+                //System.out.println("Cannot start microphone.");
+                System.out.println("Banan4");
+                recognizer.deallocate();
+                System.exit(1);
+            }
+        }
+        else {
+            microphone.clear();
+        }
+
+
+
+        //System.out.println("FILL THIS IN LATER");
+
+        // loop the recognition until the programm exits.
+        while (true) {
+
+            //System.out.println("Start speaking. Press Ctrl-C to quit.\n");
+
+            Result result = recognizer.recognize();
+            String resultText;
+
+            // System.out.println("HEJSAN: " + result);
+            if (result == null) {
+                resultText = "";
+            }
+            else {
+                resultText = result.getBestFinalResultNoFiller();
+            }
+
+            if (resultText.equals("create class")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("create edge")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("create package")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("choose draw")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("choose select")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("choose move")) {
+                System.out.println("You said:  " + resultText + "\n");
+            }
+            else if (resultText.equals("undo")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else if (resultText.equals("redo")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return resultText;
+            }
+            else {
+                System.out.println("NOPE " + resultText + "\n");
+            }
+        }
+
+    }
+
+
+    public String nameClassVoice(){ //added
+
+        if(cm == null) {
+            cm = new ConfigurationManager("src/controller/helloworld.config.xml");
+            System.out.println("Banan2,5");
+        }
+
+        if(recognizer == null) {
+            recognizer = (Recognizer) cm.lookup("recognizer");
+            recognizer.allocate();
+        }
+
+        System.out.println("Banan3");
+
+        // start the microphone or exit if the programm if this is not possible
+        if(microphone == null) {
+            microphone = (Microphone) cm.lookup("microphone");
+            if (!microphone.startRecording()) {
+                //System.out.println("Cannot start microphone.");
+                System.out.println("Banan4");
+                recognizer.deallocate();
+                System.exit(1);
+            }
+        }
+        else {
+            microphone.clear();
+        }
+
+
+
+        //System.out.println("FILL THIS IN LATER");
+
+        // loop the recognition until the programm exits.
+
+        while (true) {
+
+            //System.out.println("Start speaking. Press Ctrl-C to quit.\n");
+
+            Result result = recognizer.recognize();
+            String resultText;
+
+            // System.out.println("HEJSAN: " + result);
+            if (result == null) {
+                resultText = "";
+            }
+            else {
+                resultText = result.getBestFinalResultNoFiller();
+            }
+
+
+            if (resultText.substring(0, 1).matches("n")) {
+                System.out.println("You said: " + resultText + "\n");
+                String[] parts = resultText.split(" ");
+                String endResult = parts[1]; // 034556
+                endResult = endResult.toUpperCase();
+                return endResult;
+            }/* else if (resultText.equals("name bank")) {
+                System.out.println("You said:  " + resultText + "\n");
+                return "Bank";
+            } else if (resultText.equals("name engine")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name shift")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name break")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name breaks")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name wheel")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name wheels")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name turbo")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name battery")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name door")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name doors")) {
+                System.out.println("You said:  " + resultText + "\n");
+            } else if (resultText.equals("name ")) {
+                System.out.println("You said:  " + resultText + "\n");
+            }*/ else {
+                System.out.println("NOPE " + resultText + "\n");
+            }
+        }
+
+    }
+
+
+
+    private void voice(){ //added
+        Button previousButton = buttonInUse;
         setButtonClicked(voiceBtn);
+
+        String buttonMode = "";
+        while(buttonMode.equals("") || buttonMode == null) {
+            buttonMode = voiceTest();
+        }
+
+        if (buttonMode.equals("create class")) {
+            tool = ToolEnum.CREATE;
+            setButtonClicked(createBtn);
+        }
+        else if (buttonMode.equals("create package")) {
+            tool = ToolEnum.PACKAGE;
+            setButtonClicked(packageBtn);
+        }
+        else if (buttonMode.equals("create edge")) {
+            tool = ToolEnum.EDGE;
+            setButtonClicked(edgeBtn);
+        }
+        else if (buttonMode.equals("choose select")) {
+            tool = ToolEnum.SELECT;
+            setButtonClicked(selectBtn);
+        }
+        else if (buttonMode.equals("choose draw")) {
+            tool = ToolEnum.DRAW;
+            setButtonClicked(drawBtn);
+        }
+        else if (buttonMode.equals("choose move")) {
+            tool = ToolEnum.MOVE_SCENE;
+            setButtonClicked(moveBtn);
+        }
+        else if (buttonMode.equals("undo")) {
+            undoManager.undoCommand();
+            setButtonClicked(previousButton);
+        }
+        else if (buttonMode.equals("redo")) {
+            undoManager.redoCommand();
+            setButtonClicked(previousButton);
+        }
     }
 
     private void setButtonClicked(Button b){
@@ -1186,6 +1417,7 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
         buttonInUse = b;
         buttonInUse.getStyleClass().add("button-in-use");
     }
+
 
     private void recognize(){
         ArrayList<GraphElement> recognized = recognizeController.recognize(selectedSketches);

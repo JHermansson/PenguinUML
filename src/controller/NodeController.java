@@ -1,6 +1,10 @@
 package controller;
 
 import controller.dialog.NodeEditDialogController;
+import edu.cmu.sphinx.frontend.util.Microphone;
+import edu.cmu.sphinx.recognizer.Recognizer;
+import edu.cmu.sphinx.result.Result;
+import edu.cmu.sphinx.util.props.ConfigurationManager;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
@@ -223,7 +227,7 @@ public class NodeController {
         if (node == null) {
             return false;
         }
-        VBox group = new VBox();
+        /*VBox group = new VBox();
         TextField input = new TextField();
         Button okButton = new Button("Ok");
         okButton.setOnAction(new EventHandler<ActionEvent>() {
@@ -255,52 +259,62 @@ public class NodeController {
         group.setBackground(new Background(new BackgroundFill(Color.WHITESMOKE, new CornerRadii(1), null)));
         group.setStyle("-fx-border-color: black");
         group.setPadding(new Insets(15, 12, 15, 12));
-        aDrawPane.getChildren().add(group);
+        aDrawPane.getChildren().add(group);*/
+        String title = aMainController.nameClassVoice();
+        node.setTitle(title);
         return true;
     }
 
+
     public boolean showClassNodeEditDialog(ClassNode node) {
-        try {
+        //try {
             // Load the fxml file and create a new stage for the popup
-            FXMLLoader loader = new FXMLLoader(getClass().getClassLoader().getResource("nodeEditDialog.fxml"));
+            //FXMLLoader loader = new FXMLLoader(getClass().getClassLoader().getResource("nodeEditDialog.fxml"));
 
-            AnchorPane dialog = (AnchorPane) loader.load();
-            dialog.setBackground(new Background(new BackgroundFill(Color.WHITESMOKE, new CornerRadii(1), null)));
-            dialog.setStyle("-fx-border-color: black");
+            //AnchorPane dialog = (AnchorPane) loader.load();
+            //dialog.setBackground(new Background(new BackgroundFill(Color.WHITESMOKE, new CornerRadii(1), null)));
+            //dialog.setStyle("-fx-border-color: black");
             //Set location for dialog.
-            double maxX = aDrawPane.getWidth() - dialog.getPrefWidth();
-            double maxY = aDrawPane.getHeight() - dialog.getPrefHeight();
-            dialog.setLayoutX(Math.min(maxX,node.getTranslateX()+5));
-            dialog.setLayoutY(Math.min(maxY, node.getTranslateY()+5));
+            //double maxX = aDrawPane.getWidth() - dialog.getPrefWidth();
+            //double maxY = aDrawPane.getHeight() - dialog.getPrefHeight();
+            //dialog.setLayoutX(Math.min(maxX,node.getTranslateX()+5));
+            //dialog.setLayoutY(Math.min(maxY, node.getTranslateY()+5));
 
-            NodeEditDialogController controller = loader.getController();
-            controller.setNode(node);
-            controller.getOkButton().setOnAction(new EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent event) {
-                    node.setTitle(controller.getTitle());
-                    node.setAttributes(controller.getAttributes());
-                    node.setOperations(controller.getOperations());
-                    aDrawPane.getChildren().remove(dialog);
-                    aMainController.removeDialog(dialog);
-                }
-            });
+            //NodeEditDialogController controller = loader.getController();
+            //controller.setNode(node);
+            //controller.getOkButton().setOnAction(new EventHandler<ActionEvent>() {
+            //    @Override
+            //    public void handle(ActionEvent event) {
+            //        node.setTitle(controller.getTitle());
+            //        node.setAttributes(controller.getAttributes());
+            //        node.setOperations(controller.getOperations());
+            //        aDrawPane.getChildren().remove(dialog);
+            //        aMainController.removeDialog(dialog);
+            //    }
+            //});
+ 
+            //controller.getCancelButton().setOnAction(new EventHandler<ActionEvent>() {
+            //    @Override
+            //    public void handle(ActionEvent event) {
+            //        aDrawPane.getChildren().remove(dialog);
+            //        aMainController.removeDialog(dialog);
+            //    }
+            //});
+            //aDrawPane.getChildren().add(dialog);
+            //aMainController.addDialog(dialog);
+            String title = aMainController.nameClassVoice();
+            node.setTitle(title);
+            //controller.setNode(node, title);
+            //aDrawPane.getChildren().remove(dialog);
+            //aMainController.removeDialog(dialog);
+            //aDrawPane.getChildren().add(dialog);
+            //aMainController.addDialog(dialog);
+            return true; //controller.isOkClicked();
 
-            controller.getCancelButton().setOnAction(new EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent event) {
-                    aDrawPane.getChildren().remove(dialog);
-                    aMainController.removeDialog(dialog);
-                }
-            });
-            aDrawPane.getChildren().add(dialog);
-            aMainController.addDialog(dialog);
-            return controller.isOkClicked();
-
-        } catch (IOException e) {
+        //} catch (IOException e) {
             // Exception gets thrown if the fxml file could not be loaded
-            e.printStackTrace();
-            return false;
-        }
+       //     e.printStackTrace();
+        //    return false;
+       // }
     }
 }

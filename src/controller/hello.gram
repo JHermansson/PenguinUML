@@ -1,0 +1,17 @@
+#JSGF V1.0;
+
+/**
+ * JSGF Grammar for Hello World example
+ */
+
+grammar hello;
+
+public <greet> = (Name) (Car | Bank | Engine | Shift | Break | Breaks | Wheel | Wheels | Turbo | Battery | Door | Doors | Window | Windows | Head Lights | Rear Lights | Seat | Fuel | Alarm | Seat Belt | Gearbox);
+
+public <command> = (Create) (Class | Edge | Package);
+
+public <remove> = (Delete) (Class) (Car | Bank);
+
+public <selection> = (Choose) (Draw | Select | Move | Recognize);
+
+public <edit> = (Redo | Undo);

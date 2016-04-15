@@ -1331,8 +1331,8 @@ private void handleOnEdgeViewPressedEvents(AbstractEdgeView edgeView) {
 
             if (resultText.substring(0, 1).matches("n")) {
                 System.out.println("You said: " + resultText + "\n");
-                String[] parts = resultText.split(" ");
-                String endResult = parts[1]; // 034556
+                //String[] parts = resultText.split(" ");
+                String endResult = resultText.replace("name ", "");
                 endResult = endResult.toUpperCase();
                 return endResult;
             }/* else if (resultText.equals("name bank")) {

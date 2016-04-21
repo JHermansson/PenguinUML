@@ -6,12 +6,14 @@
 
 grammar hello;
 
-public <greet> = (Name) (Car | Bank | Engine | Shift | Break | Breaks | Wheel | Wheels | Turbo | Battery | Door | Doors | Window | Windows | Head Lights | Rear Lights | Seat | Fuel | Alarm | Seat Belt | Gearbox);
+public <lol> = (hello world | greetings | hey);
 
-public <command> = (Create) (Class | Edge | Package);
+public <greet> = (name) (car | bank | Engine | Shift | Break | Breaks | Wheel | Wheels | Turbo | Battery | Door | Doors | Window | Windows | Head Lights | Rear Lights | Seat | Fuel | Alarm | Seat Belt | Gearbox);
 
-public <remove> = (Delete) (Class) (Car | Bank);
+public <command> = (create) (class | edge | package);
 
-public <selection> = (Choose) (Draw | Select | Move | Recognize);
+public <remove> = (delete) (class) (car | bank);
 
-public <edit> = (Redo | Undo);
+public <selection> = (choose) (draw | select | move | recognize);
+
+public <edit> = (redo | undo);
